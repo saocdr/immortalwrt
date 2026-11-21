@@ -198,3 +198,28 @@
 &edma {
 	status = "okay";
 };
+
+/* AX3600 / AX6 均无 USB 口，整套 USB 控制器与 PHY 不参与 probe */
+&qusb_phy_0 {
+	status = "disabled";
+};
+
+&qusb_phy_1 {
+	status = "disabled";
+};
+
+&ssphy_0 {
+	status = "disabled";
+};
+
+&ssphy_1 {
+	status = "disabled";
+};
+
+&usb_0 {
+	status = "disabled";
+};
+
+&usb_1 {
+	status = "disabled";
+};
