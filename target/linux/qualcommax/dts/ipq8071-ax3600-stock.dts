@@ -10,3 +10,8 @@
 		bootargs-append = " root=/dev/ubiblock0_1";
 	};
 };
+
+&edma {
+	status = "okay";
+	qcom,disable-tso;
+};
