@@ -1,0 +1,18 @@
+# AX3600 / AX6 没有 USB 硬件，以下包属于纯死重量。
+# 每行格式: CONFIG_符号  说明
+#
+# 关掉它们能省几百 KB 的 squashfs 与 rootfs 占用，
+# 对 4 MiB overlay（UBIFS rootfs_data 上限 48 LEB）是实打实的余量。
+
+PACKAGE_kmod-usb3              # target Makefile 的 DEFAULT_PACKAGES 里
+PACKAGE_kmod-usb-dwc3          # 同上
+PACKAGE_kmod-usb-dwc3-qcom     # 同上，就是报 -EBUSY 的那个控制器驱动
+PACKAGE_kmod-usb-serial-qualcomm   # 同上
+PACKAGE_kmod-usb-storage       # 被 automount 拉进来的
+PACKAGE_automount              # 必须一起关，否则依赖会把 kmod-usb-storage 拉回来
+
+# 说明：
+# - kmod-usb-core / usbcore 会随上面这些一起消失，不用单列。
+# - 不要在 target/linux/qualcommax/Makefile 里删 DEFAULT_PACKAGES——
+#   那会影响该 target 下所有设备（wax630、ax9000 等确实有 USB 口）。
+# - 只改自己仓库根目录的 .config。
