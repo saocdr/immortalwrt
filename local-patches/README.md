@@ -65,39 +65,52 @@ awk '/eth0/{print "tx_errors="$12, "tx_packets="$11}' /proc/net/dev
 dmesg | grep -c 'qca-edma.*tx error'
 ```
 
-## 6. USB 软件包瘦身（可选，针对 .config）
+## 6. USB 软件包瘦身（可选）
 
 AX3600 与 AX6 都没有 USB 硬件，但 target 的 `DEFAULT_PACKAGES` 里仍带着
 `kmod-usb3`、`kmod-usb-dwc3`、`kmod-usb-dwc3-qcom`、`kmod-usb-serial-qualcomm`，
 `automount` 还会把 `kmod-usb-storage` 拖进来。这些包在 4 MiB 的 overlay 上属于纯浪费。
 
-**不要改 `target/linux/qualcommax/Makefile`**（那会影响同 target 下真有 USB 口的设备），
-只改自己仓库根目录的 `.config`：
+**不要改 `target/linux/qualcommax/Makefile`**（那会影响同 target 下真有 USB 口的设备，
+如 ax9000、mx8500、qnap 301w）。按构建方式二选一：
+
+### 6.1 走 CI（saocdr/OpenWRT-CI）
+
+改 **`Config/IPQ807X-WIFI-YES.txt`**，在设备列表之后追加：
+
+```
+#AX3600 / AX6 无USB口，精简无用USB组件
+CONFIG_PACKAGE_kmod-usb3=n
+CONFIG_PACKAGE_kmod-usb-dwc3=n
+CONFIG_PACKAGE_kmod-usb-dwc3-qcom=n
+CONFIG_PACKAGE_kmod-usb-serial-qualcomm=n
+CONFIG_PACKAGE_kmod-usb-storage=n
+CONFIG_PACKAGE_automount=n
+```
+
+原因：`WRT-CORE.yml` 第 188/190 行把 `Config/<平台>.txt`（及 `GENERAL.txt`）追加进
+`.config`，第 196 行再 `make defconfig`，所以显式 `=n` 会覆盖 `DEFAULT_PACKAGES`。
+**不要写进 `GENERAL.txt`**——它被 x86 / mediatek / rockchip 等所有平台共用。
+
+验证：构建完从 Actions artifact 下载 `Config-IPQ807X-*.txt`，
+`grep -E 'PACKAGE_kmod-usb|PACKAGE_automount'` 应为 6 行 `is not set`。
+
+### 6.2 走本地编译（make menuconfig / defconfig）
 
 ```sh
-# 1) 先生成 .config（二选一）
 make menuconfig        # 或 make defconfig
-
-# 2) 关掉死重量（幂等，可反复执行）
 ./local-patches/apply-config.sh
-
-# 3) 看结果：6 项都应是 "# CONFIG_... is not set"
 grep -E 'PACKAGE_kmod-usb|PACKAGE_automount' .config
 ```
 
-脚本行为：
+脚本优先用 `./scripts/config --disable`，没有则退 `sed`；已关项打印 `[skip]`；
+有改动会自动跑 `make olddefconfig`。符号清单见 `config-usb-trim.txt`。
 
-- 优先用仓库自带的 `./scripts/config --disable`；没有则退回 `sed`；
-- 已经关掉的项打印 `[skip]`，不会重复改；
-- 有改动时自动跑一次 `make olddefconfig` 收敛依赖；
-- 若某项又变回 `=y`，说明被别的包 `select` 了，按名字继续往上关。
+### 6.3 注意
 
-符号清单见 `config-usb-trim.txt`。
-
-### 与上游同步时的注意
-
-`.config` 通常不进 git（每次 `make menuconfig` 都会重写）。所以这一项**不是自动生效**的：
-重新 `make defconfig` 或换 `.config` 之后，记得再跑一次 `apply-config.sh`。
-它只影响构建产物，不碰源码，跟 0001/0002 两个 dts 补丁互不干扰。
+- `.config` 被 `.gitignore` 忽略（`/.config`），**不会进仓库**，所以 CI 只能靠上面的 Config txt；
+- 本地每次重新生成 `.config` 后都要再跑一次 `apply-config.sh`；
+- 若日后在 `IPQ807X-WIFI-YES.txt` 里启用带 USB 口的设备（qnap_301w、mx8500、ax9000、
+  cr1000a），记得把 6.1 那 6 行删掉。
 
 > （注：部分内容由豆包 AI 生成）
