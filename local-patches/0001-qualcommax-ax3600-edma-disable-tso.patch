@@ -1,0 +1,39 @@
+From: local patch <local@ax3600>
+Date: Sun, 22 Nov 2026 19:34:21 +0800
+Subject: [PATCH] qualcommax: ax3600: disable TSO on edma
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+AX3600 上偶发 qca-edma tx error 0x90000017 / 0x10000017（约 0.2~0.5 条/小时），
+状态字解出：错误域内只有 bit28 置位、低 7 位恒为 23（TX queue 0），
+sysfs tx_errors 与之 1:1（每事件真丢 1 帧），tx_dropped / tx_fifo_errors /
+tx_carrier_errors 全为 0，排除队列拥塞与物理层。
+
+edma 驱动的 DT binding 里预留了 qcom,disable-tso，用于
+"PPE egress path may forward a GSO aggregate as one frame instead of
+segmenting it for the uplink" 的板型，与上述故障形态一致；仓库内先例为
+ipq8072-cr1000a.dts。
+
+本板实测下行约 1:10,000,000 丢帧率，与本改动无冲突：关闭后大帧由软件分段，
+CPU 参与度上升的代价在千兆线速以下可忽略。
+---
+ target/linux/qualcommax/dts/ipq8071-ax3600-stock.dts | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/target/linux/qualcommax/dts/ipq8071-ax3600-stock.dts b/target/linux/qualcommax/dts/ipq8071-ax3600-stock.dts
+index 9eff101..b25f632 100644
+--- a/target/linux/qualcommax/dts/ipq8071-ax3600-stock.dts
++++ b/target/linux/qualcommax/dts/ipq8071-ax3600-stock.dts
+@@ -10,3 +10,8 @@
+ 		bootargs-append = " root=/dev/ubiblock0_1";
+ 	};
+ };
++
++&edma {
++	status = "okay";
++	qcom,disable-tso;
++};
+-- 
+2.34.1
+
